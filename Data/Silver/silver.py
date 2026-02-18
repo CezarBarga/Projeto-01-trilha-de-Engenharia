@@ -1,4 +1,6 @@
-# silver.py
+# ==========================================
+# PIPELINE SILVER → GOLD
+# ==========================================
 import pandas as pd
 from tabulate import tabulate
 import os  # Import necessário para manipulação de pastas e caminhos
@@ -11,10 +13,10 @@ def main():
     print("\n Arquivo Parquet carregado com sucesso!\n")
     
     # -------------------------------
-    # Mostrar primeiras 10 linhas do DataFrame original (comentado para uso posterior)
+    # Mostrar primeiras 10 linhas do DataFrame original
     # -------------------------------
-    # print(" Primeiras 10 linhas do DataFrame original (formato tabular):")
-    # print(tabulate(df.head(10), headers='keys', tablefmt='grid', showindex=False))
+    print("\n Primeiras 10 linhas do DataFrame original:")
+    print(tabulate(df.head(10), headers='keys', tablefmt='grid', showindex=False))
     
     # -------------------------------
     # Curácia de dados: tratar coluna 'assignee'
@@ -25,7 +27,7 @@ def main():
     df_dados_equipe = pd.json_normalize(df_dados_equipe['assignee'])
     df_dados_equipe = df_dados_equipe[['id', 'name', 'email']].drop_duplicates().sort_values('id').reset_index(drop=True)
     
-    print("\n Primeiras 10 linhas do DataFrame 'df_dados_equipe' (formato tabular):")
+    print("\n Primeiras 10 linhas do DataFrame 'df_dados_equipe':")
     print(tabulate(df_dados_equipe.head(10), headers='keys', tablefmt='grid', showindex=False))
     
     # -------------------------------
@@ -35,44 +37,39 @@ def main():
     df_sla_temp['assignee_id'] = df_sla_temp['assignee'].apply(lambda x: x.get('id') if isinstance(x, dict) else None)
     df_SLA = df_sla_temp[['id', 'issue_type', 'status', 'priority', 'timestamps', 'assignee_id']]
     
-    print("\n Primeiras 10 linhas do DataFrame 'df_SLA' (formato tabular):")
+    print("\n Primeiras 10 linhas do DataFrame 'df_SLA':")
     print(tabulate(df_SLA.head(10), headers='keys', tablefmt='grid', showindex=False))
     
     # -------------------------------
-    # Nova acurácia de dados: criar df_timestamps
+    # Criar df_timestamps
     # Normalizar os dicionários da coluna timestamps
     # Criar df_timestamps final apenas com as colunas desejadas
+    # Converter para datetime (datas de solução e de criação)
+    # Ordenar as colunas e remover duplicados
     # -------------------------------
     df_timestamps_temp = df_SLA.explode('timestamps')
     df_timestamps_temp['timestamps'] = df_timestamps_temp['timestamps'].apply(lambda x: x if isinstance(x, dict) else {})
     df_timestamps_dict = pd.json_normalize(df_timestamps_temp['timestamps'])
     df_timestamps = pd.concat([df_timestamps_temp[['id', 'assignee_id']], df_timestamps_dict[['created_at','resolved_at']]], axis=1)
-    
-    # -------------------------------
-    # Converter para datetime diretamente
-    # -------------------------------
     df_timestamps['created_at'] = pd.to_datetime(df_timestamps['created_at'], errors='coerce', utc=True)
     df_timestamps['resolved_at'] = pd.to_datetime(df_timestamps['resolved_at'], errors='coerce', utc=True)
-    
-    # -------------------------------
-    # Ordenar e remover duplicados
-    # -------------------------------
     df_timestamps = df_timestamps.sort_values(by=['id', 'assignee_id', 'created_at', 'resolved_at']).drop_duplicates().reset_index(drop=True)
     
     print("\n Primeiras 10 linhas do DataFrame 'df_timestamps' (com datetime):")
     print(tabulate(df_timestamps.head(10), headers='keys', tablefmt='grid', showindex=False))
 
-    # -------------------------------
+    # ----------------------------------
     # Ajustes no Dataframe df_SLA.
     # Apenas depois df_timestamps pronto 
     # Remover a coluna 'timestamps'
     # Ordenar e remover duplicados
-    # -------------------------------
+    # ----------------------------------
     df_SLA = df_SLA.drop(columns=['timestamps'])
     colunas_ordenadas = ['assignee_id', 'id'] + [col for col in df_SLA.columns if col not in ['assignee_id', 'id']]
     df_SLA = df_SLA[colunas_ordenadas]
     df_SLA = df_SLA.sort_values(by=['assignee_id', 'id']).drop_duplicates().reset_index(drop=True)
     
+    print("\n Primeiras 10 linhas do DataFrame 'df_SLA' (após remoção a coluna 'timestamps'):")
     print(tabulate(df_SLA.head(10), headers='keys', tablefmt='grid', showindex=False))
     
     # -------------------------------

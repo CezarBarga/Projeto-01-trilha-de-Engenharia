@@ -1,6 +1,5 @@
 # ==========================================
 # PIPELINE BRONZE → SILVER
-# Execução via: ▶ Run Python File (VSCode)
 # ==========================================
 
 import json
@@ -38,24 +37,22 @@ def salvar_parquet(df, caminho_saida):
     """Salva DataFrame em Parquet (Silver)"""
     try:
         df.to_parquet(caminho_saida, index=False)
-        print("✅ Arquivo salvo na camada Silver")
-        print("📁 Local:", caminho_saida)
+        print(" Arquivo salvo na camada Silver")
+        print(" Local:", caminho_saida)
     except Exception as erro:
-        print("❌ Erro ao salvar Parquet:", erro)
+        print(" Erro ao salvar Parquet:", erro)
 
 
 def main():
 
-    print("🚀 Iniciando pipeline Bronze → Silver")
-    print("⏱", datetime.now())
+    print(" Iniciando pipeline Bronze → Silver")
+    print("-->", datetime.now())
 
     # Caminhos
     caminho_bronze = r"D:\Arquivos Projeto Python\Projeto 01 trilha de Engenharia\Projeto Fast Track\Data\Bronze\jira_issues_raw.json"
-
     pasta_silver = r"D:\Arquivos Projeto Python\Projeto 01 trilha de Engenharia\Projeto Fast Track\Data\Silver"
 
     os.makedirs(pasta_silver, exist_ok=True)
-
     caminho_silver = os.path.join(pasta_silver, "jira_issues_silver.parquet")
 
     # Processo
@@ -63,12 +60,9 @@ def main():
 
     if dados is not None:
         df = criar_dataframe(dados)
-
         # Cópia Bronze → Silver
         dataframe_saida = df.copy()
-
         salvar_parquet(dataframe_saida, caminho_silver)
-
     print(" Pipeline finalizado")
 
 
