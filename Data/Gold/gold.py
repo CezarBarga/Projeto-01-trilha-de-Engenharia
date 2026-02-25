@@ -3,6 +3,7 @@
 import pandas as pd
 import os
 from tabulate import tabulate
+from sla_calculation import calcular_intervalo_uteis_em_horas
 
 
 def main():
@@ -47,9 +48,9 @@ def main():
     df_timestamps = df_timestamps.sort_values(by=["id", "assignee_id"]).reset_index(drop=True)
 
     # ------------------------------------------------------------
-    # LOOP TABELA FINAL
+    # LOOP Carga Dataframe Final
     # ------------------------------------------------------------
-    for index, row in df_timestamps.iterrows():  #percorre linha por linha
+    for index, row in df_timestamps.iterrows():
 
         aux_total_hours = 0.0
 
@@ -58,7 +59,7 @@ def main():
         created_at = row["created_at"]
         resolved_at = row["resolved_at"]
 
-        sla_row = df_SLA[df_SLA["id"] == issue_id]   #Filtrando o DataFrame df_SLA para pegar apenas as linhas cujo id seja igual ao issue_id atual do loop.
+        sla_row = df_SLA[df_SLA["id"] == issue_id]
 
         if sla_row.empty:
             continue
@@ -68,8 +69,10 @@ def main():
         priority = sla_row.iloc[0]["priority"]
 
         if status != "Open" and pd.notnull(created_at) and pd.notnull(resolved_at):
-            diff = resolved_at - created_at
-            aux_total_hours = diff.total_seconds() / 3600.0
+
+            horas_uteis = calcular_intervalo_uteis_em_horas(created_at, resolved_at)
+
+            aux_total_hours = aux_total_hours + horas_uteis
 
         sla_expected = priority_sla_dict.get(priority, 0.0)
 
@@ -91,7 +94,7 @@ def main():
         ]
 
     # ============================================================
-    # LOOP SLA ASSIGNEE  
+    # LOOP carga SLA assignee
     # ============================================================
 
     df_tabela_final_temp = df_tabela_final.sort_values(
@@ -108,20 +111,18 @@ def main():
     current_assignee_name = ""
     aux_sum = 0.0
     aux_count = 0
-    aux_avarage = 0.0
 
     for index, row in df_tabela_final_temp.iterrows():
 
-        if first_time == True:
+        if first_time:
             first_time = False
             current_assignee_name = row["assignee_name"]
             aux_sum = 0.0
             aux_count = 0
-            aux_avarage = 0.0
 
         if current_assignee_name == row["assignee_name"]:
-            aux_sum = aux_sum + row["resolution_hours"]
-            aux_count = aux_count + 1
+            aux_sum += row["resolution_hours"]
+            aux_count += 1
         else:
             aux_avarage = aux_sum / aux_count
 
@@ -132,19 +133,19 @@ def main():
             ]
 
             current_assignee_name = row["assignee_name"]
-            aux_sum = 0.0
-            aux_count = 0
+            aux_sum = row["resolution_hours"]
+            aux_count = 1
 
-    # inserir último grupo
-    aux_avarage = aux_sum / aux_count
-    df_sla_assignee.loc[len(df_sla_assignee)] = [
-        current_assignee_name,
-        aux_count,
-        aux_avarage
-    ]
+    if aux_count > 0:
+        aux_avarage = aux_sum / aux_count
+        df_sla_assignee.loc[len(df_sla_assignee)] = [
+            current_assignee_name,
+            aux_count,
+            aux_avarage
+        ]
 
     # ============================================================
-    # SLA ISSUE TYPE 
+    # LOOP Carga SLA por issue_type
     # ============================================================
 
     df_tabela_final_temp2 = df_tabela_final.sort_values(
@@ -161,20 +162,18 @@ def main():
     current_issue_type = ""
     aux_sum = 0.0
     aux_count = 0
-    aux_avarage = 0.0
 
     for index, row in df_tabela_final_temp2.iterrows():
 
-        if first_time == True:
+        if first_time:
             first_time = False
             current_issue_type = row["issue_type"]
             aux_sum = 0.0
             aux_count = 0
-            aux_avarage = 0.0
 
         if current_issue_type == row["issue_type"]:
-            aux_sum = aux_sum + row["resolution_hours"]
-            aux_count = aux_count + 1
+            aux_sum += row["resolution_hours"]
+            aux_count += 1
         else:
             aux_avarage = aux_sum / aux_count
 
@@ -185,16 +184,16 @@ def main():
             ]
 
             current_issue_type = row["issue_type"]
-            aux_sum = 0.0
-            aux_count = 0
+            aux_sum = row["resolution_hours"]
+            aux_count = 1
 
-    # inserir último grupo
-    aux_avarage = aux_sum / aux_count
-    df_sla_id.loc[len(df_sla_id)] = [
-        current_issue_type,
-        aux_count,
-        aux_avarage
-    ]
+    if aux_count > 0:
+        aux_avarage = aux_sum / aux_count
+        df_sla_id.loc[len(df_sla_id)] = [
+            current_issue_type,
+            aux_count,
+            aux_avarage
+        ]
 
     # ------------------------------------------------------------
     # Exibir resultados
@@ -209,22 +208,39 @@ def main():
     print(tabulate(df_tabela_final.head(10), headers="keys", tablefmt="grid", showindex=False))
 
     # ------------------------------------------------------------
-    # Gravar arquivos na pasta GOLD
+    # Exibir SLAs NÃO cumpridos
+    # ------------------------------------------------------------
+    # print("\n SLAs NÃO cumpridos (sla_met_flag = False):\n")
+
+    # df_sla_nao_cumprido = df_tabela_final[
+    #    df_tabela_final["sla_met_flag"] == False
+    #]
+
+    #if not df_sla_nao_cumprido.empty:
+    #    print(tabulate(
+    #        df_sla_nao_cumprido,
+    #        headers="keys",
+    #        tablefmt="grid",
+    #        showindex=False
+    #    ))
+    #else:
+    #    print("Nenhum SLA foi violado 🎉")
+
+    # ------------------------------------------------------------
+    # Gravar arquivos
     # ------------------------------------------------------------
 
-    # 1️⃣ Parquet - Tabela Final
     caminho_parquet = os.path.join(pasta_gold, "jira_solution_final_table_gold.parquet")
     df_tabela_final.to_parquet(caminho_parquet, index=False)
 
-    # 2️⃣ CSV - SLA por Assignee
     caminho_csv_assignee = os.path.join(pasta_gold, "jira_solution_report_assignee_gold.csv")
     df_sla_assignee.to_csv(caminho_csv_assignee, index=False, sep=";")
 
-    # 3️⃣ CSV - SLA por Issue Type
     caminho_csv_id = os.path.join(pasta_gold, "jira_solution_report_id_gold.csv")
     df_sla_id.to_csv(caminho_csv_id, index=False, sep=";")
 
     print("\n Arquivos gerados com sucesso na pasta GOLD!\n")
+
 
 if __name__ == "__main__":
     main()

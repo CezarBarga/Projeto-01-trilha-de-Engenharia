@@ -22,10 +22,10 @@ def main():
     # Curácia de dados: tratar coluna 'assignee'
     # Ajustar ordem das colunas, remover duplicados e ordenar por id
     # -------------------------------
-    df_dados_equipe = df.explode('assignee')
-    df_dados_equipe['assignee'] = df_dados_equipe['assignee'].apply(lambda x: x if isinstance(x, dict) else {})
-    df_dados_equipe = pd.json_normalize(df_dados_equipe['assignee'])
-    df_dados_equipe = df_dados_equipe[['id', 'name', 'email']].drop_duplicates().sort_values('id').reset_index(drop=True)
+    df_dados_equipe = df.explode('assignee')                                                                          # explode a lista 
+    df_dados_equipe['assignee'] = df_dados_equipe['assignee'].apply(lambda x: x if isinstance(x, dict) else {})       # evita erro --> invalidos com {}
+    df_dados_equipe = pd.json_normalize(df_dados_equipe['assignee'])                                                  # transforme em tabular
+    df_dados_equipe = df_dados_equipe[['id', 'name', 'email']].drop_duplicates().sort_values('id').reset_index(drop=True)  # ordenação e limpeza
     
     print("\n Primeiras 10 linhas do DataFrame 'df_dados_equipe':")
     print(tabulate(df_dados_equipe.head(10), headers='keys', tablefmt='grid', showindex=False))
@@ -33,9 +33,9 @@ def main():
     # -------------------------------
     # Nova acurácia de dados: criar df_SLA
     # -------------------------------
-    df_sla_temp = df.explode('assignee')
-    df_sla_temp['assignee_id'] = df_sla_temp['assignee'].apply(lambda x: x.get('id') if isinstance(x, dict) else None)
-    df_SLA = df_sla_temp[['id', 'issue_type', 'status', 'priority', 'timestamps', 'assignee_id']]
+    df_sla_temp = df.explode('assignee')                                                                                  # explode a lista
+    df_sla_temp['assignee_id'] = df_sla_temp['assignee'].apply(lambda x: x.get('id') if isinstance(x, dict) else None)    # extrai o assignee-id, se inválido retorna NaT
+    df_SLA = df_sla_temp[['id', 'issue_type', 'status', 'priority', 'timestamps', 'assignee_id']]                         # deleciona as colunas
     
     print("\n Primeiras 10 linhas do DataFrame 'df_SLA':")
     print(tabulate(df_SLA.head(10), headers='keys', tablefmt='grid', showindex=False))
@@ -47,13 +47,13 @@ def main():
     # Converter para datetime (datas de solução e de criação)
     # Ordenar as colunas e remover duplicados
     # -------------------------------
-    df_timestamps_temp = df_SLA.explode('timestamps')
-    df_timestamps_temp['timestamps'] = df_timestamps_temp['timestamps'].apply(lambda x: x if isinstance(x, dict) else {})
-    df_timestamps_dict = pd.json_normalize(df_timestamps_temp['timestamps'])
-    df_timestamps = pd.concat([df_timestamps_temp[['id', 'assignee_id']], df_timestamps_dict[['created_at','resolved_at']]], axis=1)
-    df_timestamps['created_at'] = pd.to_datetime(df_timestamps['created_at'], errors='coerce', utc=True)
-    df_timestamps['resolved_at'] = pd.to_datetime(df_timestamps['resolved_at'], errors='coerce', utc=True)
-    df_timestamps = df_timestamps.sort_values(by=['id', 'assignee_id', 'created_at', 'resolved_at']).drop_duplicates().reset_index(drop=True)
+    df_timestamps_temp = df_SLA.explode('timestamps')                                                                                # explode a lista
+    df_timestamps_temp['timestamps'] = df_timestamps_temp['timestamps'].apply(lambda x: x if isinstance(x, dict) else {})            # evita erro --> invalidos com {}
+    df_timestamps_dict = pd.json_normalize(df_timestamps_temp['timestamps'])                                                         # transforme em tabular
+    df_timestamps = pd.concat([df_timestamps_temp[['id', 'assignee_id']], df_timestamps_dict[['created_at','resolved_at']]], axis=1) #concatena as chaves
+    df_timestamps['created_at'] = pd.to_datetime(df_timestamps['created_at'], errors='coerce', utc=True)                             # converte datetime --> errors='coerce' --> se data inválida converte para NaT
+    df_timestamps['resolved_at'] = pd.to_datetime(df_timestamps['resolved_at'], errors='coerce', utc=True)                           # converte datetime --> errors='coerce' --> se data inválida converte para NaT
+    df_timestamps = df_timestamps.sort_values(by=['id', 'assignee_id', 'created_at', 'resolved_at']).drop_duplicates().reset_index(drop=True) # ordenação e limpeza
     
     print("\n Primeiras 10 linhas do DataFrame 'df_timestamps' (com datetime):")
     print(tabulate(df_timestamps.head(10), headers='keys', tablefmt='grid', showindex=False))
@@ -64,10 +64,10 @@ def main():
     # Remover a coluna 'timestamps'
     # Ordenar e remover duplicados
     # ----------------------------------
-    df_SLA = df_SLA.drop(columns=['timestamps'])
-    colunas_ordenadas = ['assignee_id', 'id'] + [col for col in df_SLA.columns if col not in ['assignee_id', 'id']]
+    df_SLA = df_SLA.drop(columns=['timestamps'])                                                                       #remove coluna timestamp (desnecessária)
+    colunas_ordenadas = ['assignee_id', 'id'] + [col for col in df_SLA.columns if col not in ['assignee_id', 'id']]    # ordena as colunas
     df_SLA = df_SLA[colunas_ordenadas]
-    df_SLA = df_SLA.sort_values(by=['assignee_id', 'id']).drop_duplicates().reset_index(drop=True)
+    df_SLA = df_SLA.sort_values(by=['assignee_id', 'id']).drop_duplicates().reset_index(drop=True)                     # ordenação e limpeza
     
     print("\n Primeiras 10 linhas do DataFrame 'df_SLA' (após remoção a coluna 'timestamps'):")
     print(tabulate(df_SLA.head(10), headers='keys', tablefmt='grid', showindex=False))
