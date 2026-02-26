@@ -3,24 +3,33 @@
 import pandas as pd
 import os
 from tabulate import tabulate
+from datetime import datetime
 from sla_calculation import calcular_intervalo_uteis_em_horas
 
 
 def main():
 
-    # ------------------------------------------------------------
-    # Leitura dos arquivos Parquet
-    # ------------------------------------------------------------
-    pasta_gold = r"D:\Arquivos Projeto Python\Projeto 01 trilha de Engenharia\Projeto Fast Track\Data\Gold"
-
-    df_dados_equipe = pd.read_parquet(os.path.join(pasta_gold, "jira_issues_equipe_gold.parquet"))
-    df_SLA = pd.read_parquet(os.path.join(pasta_gold, "jira_issues_SLA_gold.parquet"))
-    df_timestamps = pd.read_parquet(os.path.join(pasta_gold, "jira_issues_timestamp_gold.parquet"))
-
-    print("\n Arquivos Gold carregados com sucesso!\n")
+    # ------------------------------------------
+    # Start ingestion pipeline to Gold layer
+    # ------------------------------------------
+    print("==========================================")
+    print("INGESTION PIPELINE → GOLD")
+    print("Start time:", datetime.now())
+    print("==========================================")
 
     # ------------------------------------------------------------
-    # Lista SLA
+    # Read Parquet files from Silver layer
+    # ------------------------------------------------------------
+    pasta_silver = r"D:\Arquivos Projeto Python\Projeto 01 trilha de Engenharia\Projeto Fast Track\Data\Silver"
+
+    df_dados_equipe = pd.read_parquet(os.path.join(pasta_silver, "jira_issues_equipe_silver.parquet"))
+    df_SLA = pd.read_parquet(os.path.join(pasta_silver, "jira_issues_SLA_silver.parquet"))
+    df_timestamps = pd.read_parquet(os.path.join(pasta_silver, "jira_issues_timestamp_silver.parquet"))
+
+    print("\n Silver files successfully loaded!\n")
+
+    # ------------------------------------------------------------
+    # SLA configuration list
     # ------------------------------------------------------------
     priority_sla = [
         {"priority": "High", "expected_sla": 24.0},
@@ -31,7 +40,7 @@ def main():
     priority_sla_dict = {item["priority"]: item["expected_sla"] for item in priority_sla}
 
     # ------------------------------------------------------------
-    # DataFrame Final
+    # Final fact table structure
     # ------------------------------------------------------------
     df_tabela_final = pd.DataFrame(columns=[
         "id",
@@ -48,7 +57,7 @@ def main():
     df_timestamps = df_timestamps.sort_values(by=["id", "assignee_id"]).reset_index(drop=True)
 
     # ------------------------------------------------------------
-    # LOOP Carga Dataframe Final
+    # Load final fact table
     # ------------------------------------------------------------
     for index, row in df_timestamps.iterrows():
 
@@ -71,7 +80,6 @@ def main():
         if status != "Open" and pd.notnull(created_at) and pd.notnull(resolved_at):
 
             horas_uteis = calcular_intervalo_uteis_em_horas(created_at, resolved_at)
-
             aux_total_hours = aux_total_hours + horas_uteis
 
         sla_expected = priority_sla_dict.get(priority, 0.0)
@@ -93,10 +101,9 @@ def main():
             sla_flag
         ]
 
-    # ============================================================
-    # LOOP carga SLA assignee
-    # ============================================================
-
+    # ------------------------------------------------------------
+    # Aggregate SLA by assignee
+    # ------------------------------------------------------------
     df_tabela_final_temp = df_tabela_final.sort_values(
         by="assignee_name"
     ).reset_index(drop=True)
@@ -144,10 +151,9 @@ def main():
             aux_avarage
         ]
 
-    # ============================================================
-    # LOOP Carga SLA por issue_type
-    # ============================================================
-
+    # ------------------------------------------------------------
+    # Aggregate SLA by issue type
+    # ------------------------------------------------------------
     df_tabela_final_temp2 = df_tabela_final.sort_values(
         by="issue_type"
     ).reset_index(drop=True)
@@ -195,20 +201,20 @@ def main():
             aux_avarage
         ]
 
+   # ------------------------------------------------------------
+    # Results
     # ------------------------------------------------------------
-    # Exibir resultados
-    # ------------------------------------------------------------
-    print("\n df_sla_assignee:\n")
-    print(tabulate(df_sla_assignee, headers="keys", tablefmt="grid", showindex=False))
+    # print("\n df_sla_assignee:\n")
+    # print(tabulate(df_sla_assignee, headers="keys", tablefmt="grid", showindex=False))
 
-    print("\n df_sla_id:\n")
-    print(tabulate(df_sla_id, headers="keys", tablefmt="grid", showindex=False))
+    # print("\n df_sla_id:\n")
+    # print(tabulate(df_sla_id, headers="keys", tablefmt="grid", showindex=False))
 
-    print("\n 10 primeiras linhas de df_tabela_final:\n")
-    print(tabulate(df_tabela_final.head(10), headers="keys", tablefmt="grid", showindex=False))
+    # print("\n 10 primeiras linhas de df_tabela_final:\n")
+    # print(tabulate(df_tabela_final.head(10), headers="keys", tablefmt="grid", showindex=False))
 
     # ------------------------------------------------------------
-    # Exibir SLAs NÃO cumpridos
+    # Undone SLAs
     # ------------------------------------------------------------
     # print("\n SLAs NÃO cumpridos (sla_met_flag = False):\n")
 
@@ -224,11 +230,14 @@ def main():
     #        showindex=False
     #    ))
     #else:
-    #    print("Nenhum SLA foi violado 🎉")
+    #    print("Nenhum SLA foi violado!")
+
 
     # ------------------------------------------------------------
-    # Gravar arquivos
+    # Save output files in Gold layer
     # ------------------------------------------------------------
+    pasta_gold = r"D:\Arquivos Projeto Python\Projeto 01 trilha de Engenharia\Projeto Fast Track\Data\Gold"
+    os.makedirs(pasta_gold, exist_ok=True)
 
     caminho_parquet = os.path.join(pasta_gold, "jira_solution_final_table_gold.parquet")
     df_tabela_final.to_parquet(caminho_parquet, index=False)
@@ -239,7 +248,7 @@ def main():
     caminho_csv_id = os.path.join(pasta_gold, "jira_solution_report_id_gold.csv")
     df_sla_id.to_csv(caminho_csv_id, index=False, sep=";")
 
-    print("\n Arquivos gerados com sucesso na pasta GOLD!\n")
+    print("\n Gold files successfully generated!\n")
 
 
 if __name__ == "__main__":
