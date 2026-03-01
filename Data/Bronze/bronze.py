@@ -68,10 +68,6 @@ def main():
 
         save_parquet(output_dataframe, bronze_parquet_path)
 
-    print("Pipeline finished")
-    print("End time:", datetime.now())
-
-
-# Main execution
+ # Main execution
 if __name__ == "__main__":
     main()
